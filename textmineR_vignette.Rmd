@@ -12,6 +12,8 @@ library(textmineR)
 
 # 1 Introduction
 
+Introduction goes here
+
 # 2 Mathematical Structures for Natural Language Processing
 
 Two core mathematical structures in Natural Language Processing (NLP) are the document term matrix (DTM) and the term co-occurence matrix (TCM). A DTM is a matrix whose rows index documents and whose columns index linguistic features of these documents. These linguistic features called "terms", though they may be single words, groups of words called "n-grams", stems, lemmas, or other tokens. The $(i, j)$ entries of a document term matrix are a frequency measure of term $j$ within document $i$, for example the number of times term $j$ is used within document $i$. A TCM is a square, but not necessarily symmetric, matrix whose rows and columns both index terms. The $(i, j)$ entries of a TCM represent a relationship between term $i$ and term $j$, for example the number of times term $j$ appears within $n$ places of term $i$. 
