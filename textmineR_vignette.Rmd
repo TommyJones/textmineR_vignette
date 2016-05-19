@@ -14,11 +14,20 @@ library(textmineR)
 
 Introduction goes here
 
-# 2 Mathematical Structures for Natural Language Processing
+# 2 Mathematical Structures in Text Mining
 
-Two core mathematical structures in Natural Language Processing (NLP) are the document term matrix (DTM) and the term co-occurence matrix (TCM). A DTM is a matrix whose rows index documents and whose columns index linguistic features of these documents. These linguistic features called "terms", though they may be single words, groups of words called "n-grams", stems, lemmas, or other tokens. The $(i, j)$ entries of a document term matrix are a frequency measure of term $j$ within document $i$, for example the number of times term $j$ is used within document $i$. A TCM is a square, but not necessarily symmetric, matrix whose rows and columns both index terms. The $(i, j)$ entries of a TCM represent a relationship between term $i$ and term $j$, for example the number of times term $j$ appears within $n$ places of term $i$. 
+Two core mathematical structures in text mining are the document term matrix (DTM) and the term co-occurence matrix (TCM). A DTM is a matrix whose rows index documents and whose columns index linguistic features of these documents. These linguistic features called "terms", though they may be single words, groups of words called "n-grams", stems, lemmas, or other tokens. The $(i, j)$ entries of a document term matrix are a frequency measure of term $j$ within document $i$, for example the number of times term $j$ is used within document $i$. A TCM is a square, but not necessarily symmetric, matrix whose rows and columns both index terms. The $(i, j)$ entries of a TCM represent a relationship between term $i$ and term $j$, for example the number of times term $j$ appears within $n$ places of term $i$. 
 
-The core of many NLP tasks comes from the decision to make a DTM or a TCM and the definitions of rows, columns, and frequency measures of the DTM or TCM. From there an additional algorithm may be run or statistical model fit to the DTM or TCM. Some choices for common NLP tasks are below.
+Creating a DTM or TCM is the first step of a standard text mining pipeline, below. This pipeline should look familiar to many readers. It is similar to the set of steps for many traditional statistical analyses. Here, the data matrix (columns as variables, rows as observations) is the DTM/TCM. A model is fit and analysis performed with an eye towards generalizability.
+
+1. Construct a DTM or TCM (the data matrix)
+2. Fit a model or run an algorithm on the DTM or TCM
+3. Analyze the model/algorithm's results
+4. Apply the model/algorithm to new documents (observations)
+
+The core of many text mining tasks comes from the decision to make a DTM or a TCM and the definitions of rows, columns, and frequency measures of the DTM or TCM. Choices include: What is a term (or column)? This could be single words (unigrams), $n$ ordered words (n-grams), words of only single parts of speech (for example, verbs), etc. What is a document (or row)? Raw documents may be parsed into smaller chunks, books to chapters, pages to paragraphs, etc. depending on the analyst's goals. Finally, what is the quantitative relationship between rows and columns? For a DTM this is a question of using raw word counts, a frequency reweighting, or some other index. For a TCM, it is a question of the range of co-occurence. Words may co-occur across a whole document or within a small window of $n$ words.
+
+Some choices for common tasks are below.
 
 **Probabilistic topic modeling**
 
@@ -51,14 +60,53 @@ The core of many NLP tasks comes from the decision to make a DTM or a TCM and th
 * Frequency measure is TF-IDF reweighting
 * Sentences (rows) are clustered, with cluster exemplars being chosen as a document summary.
 
+# 3 Scalability Issues in Text Mining
 
-# 3 Scaleability Issues in Natural Language Processing
+Linguistic data is large and sparse by its nature. Because of the availability of digital data, many corpora comprise a large number of documents. Such size strains RAM and increases computation time. Both of these issues can make text mining challenging in practice. 
 
-The conceptual simplicity of DTMs and TCMs contrasts the computational challenges of NLP in practice. Linguistic data is large and sparse. It is common to have a DTM with 20, 80, or more times more terms than documents. Consider the sample NIH data included with `textmineR`. It has 100 documents. Without removing stopwords, a DTM of unigrams has 5,542 columns. A DTM of unigrams and bigrams from this corpus has 30,004 columns. A matrix of 100 rows and 30,004 columns easily fits in RAM. However, the number of unique terms in a corpus tends to grow exponentially with the number of documents. This is driven by a process known as Zipf's law^[cite.]. Zipf's law means that in any corpus there are a handful of terms used almost always and many many terms used hardly ever. This leads to matrices that, if not stored efficiently, can quickly outpace available RAM. The below image depicts the result of trying to allocate memory for a matrix (corpus) with 100 thousand rows (documents) and 6 million terms (columns). Clearly memory-efficient data types are required for NLP. However, this raises a barrier to entry for those interested in NLP.
+Storing a DTM/TCM as a standard dense matrix may easily exceed available RAM on most systems. It is common for corpora to have many more unique terms than documents. A simple formula can be used to estimate the size a matrix of integers occupies in RAM in gigabytes. $\frac{8nk}{1,000,000,000}$
+
+In the formula above, $n$ is the number of rows, $k$ is the number of columns, and $8$ represents 8 bytes for each entry of the matrix. The numerator is in bytes; dividing by one billion converts it to gigabytes. 
+
+Consider the following examples of DTMs and TCMs stored as standard dense matrices in R. A 10,000 by 20,000 DTM, which represents a moderately-sized corpus with many terms removed, is about 1.6 GB. The same corpus with fewer terms removed, having 60,000 columns is about 4.8 GB. A DTM with 20,000 rows and 100,000 terms, a fairly common copus size, is about 16 GB. A TCM of the same corpus is about 80 GB.
+
+Sparse matrices find ways to not use RAM for entries that equal zero. The natural sparsity of linguistic data leads to significant space savings when representing a DTM/TCM in sparse form. A simple type of sparse matrix is a "triplet" matrix, so called because it has three columns. The first column, $i$ indexes rows of the original matrix. The second column, $j$, indexes columns of the original matrix. The third column, $v$, is the value at the $i,j$ entry of original matrix. Triplet matrices save space because $i,j$ entries that equal zero are not given a row in the triplet matrix. 
+
+The scale of linguistic data makes computation time an issue too. Fortunately, many text mining computations are "embarassingly parallel". For example, removing a word from each document in a corpus may be done in parallel, as documents either do or do not contain the word, independent of other documents. Therefore, parallel computation along with sparse matrix representation eases text mining's inherent scaleability issues. 
 
 ![oops](oops.png)
 
-Computation time is also an issue in NLP, requiring the use of parallel computing. It is good that many NLP computation tasks are embarassinly parallel. Like memory-efficient data storage, parallel computing is a more advanced topic. These two properties make it difficult for many to perform NLP, even though it is often conceptually simple. 
+
+# 4 An Ideal Framework for Textmining in R
+
+## 4.1 The Ideal Framework
+An ideal framework for text mining in R follows the below principles.
+
+1. The DTM/TCM are the central data objects.
+2. Models should, wherever possible, accept a DTM/TCM as input, not raw documents.
+3. Classes, functions, and methods should be maximally interoperable within R's ecosystem.
+4. Syntax should be idiomatic to R.
+5. Objects and computation should scale to make working with large corpora easy.
+
+An ideal framework holds the DTM/TCM as the central data objects for analysis. This framework has functions for creating and manipulating these matrices and its downstream modeling functions take the DTM/TCM as input. Unfortunately, many text mining programs (in and outside of R) are closed systems. They take raw documents, with some parameters given as arguments, and return the result of a model. The construction of the DTM/TCM is internal and analysts are constrained by choices made by the program's creators. Imagine a program for linear regression that took in raw survey responses, for example, and returned regression coefficients with little opportunity to transform your data before fitting a model! New regression programs would have to be built for every application area, as the raw input data may be significantly different. This is unfortunately common practice in text mining.^[cite some examples, `mallet`, word2vec, others?] 
+
+In terms of syntax and interoperability, the ideal framework follows "the law of least astonishment"^[cite The Tao of Programming http://canonical.org/~kragen/tao-of-programming.html#book4]. This framework uses classes that are part of R's base types except where absolutely necessary. When using non-base types (such as a sparse matrix) the class used by the ideal framework is widely adopted and has methods and functions allowing the non-base types to be manipulated as though they are base types. 
+
+
+## 4.2 `textmineR` is an Attempt at the Ideal
+
+## 4.3 How `textmineR` Improves Upon Existing Frameworks in R
+
+# 5 Overview of `textmineR`'s Main Functions
+
+
+# 6 Two Example Analyses
+
+
+# 7 Conclusion
+
+
+# OLD STUFF BELOW ##########################
 
 # 4 An Ideal Approach to Natural Language Processing in R
 An ideal NLP framework for R should have the following characteristics: It should be easy to use for an experienced R programmer. It should be maximally interoperable with other R packages, instead of being its own ecosystem. Its syntax should be intuitive for experienced R users. Finally, it should scale for large NLP tasks. `textmineR` is a best effort at these characteristics. Used in conjunction with the `text2vec` library, the framework espoused by `textmineR` scales for corpora much larger than available RAM.
